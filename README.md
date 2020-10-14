@@ -1,11 +1,15 @@
 # Crossword generator
-Generates crosswords and exports them to htlm, png or ascii
+Generates crosswords and exports them to HTML, png or ascii.
 
 # Thanks 
-to Bryan Helmig for his inspiration for this script. He did a lot of work which 
+- to Bryan Helmig for his inspiration for this script. He did a lot of work which 
 I could improve in some ways.
 See http://bryanhelmig.com/python-crossword-puzzle-generator/ for his code.
+- to Daniel Nögel for his work.
 
+# Still TODO !
+- The "solution" feature is not totally implemented for the CSV output.
+- Add a way to rework on existing output crosswords.
 
 # License
 GPLv3

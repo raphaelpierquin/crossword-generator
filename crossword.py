@@ -25,6 +25,7 @@ import re
 import time
 import string
 import copy
+import csv
 from PIL import Image, ImageDraw, ImageFont
 from optparse import OptionParser, OptionGroup
 import logging
@@ -105,7 +106,7 @@ def run_benchmark_test(words=100, num=100, bestof=3):
         if score >= best_score:
             best_score = score
             best_crossword = cwd
-    print(70*"=")    
+    print(70*"=")
     print("Best Crossword with %i points:" % best_score)
     formatter = CrossWordFormatter(best_crossword, ppb=32)#, solution="I solved it")
     #~ print formatter.get_crossword_ascii_grid(solved=False, printable=True)
@@ -142,26 +143,26 @@ class SimpleParser(object):
         --num Number of questions. Default: None = All
         """
 
-        if num is None or num == 0: 
+        if num is None or num == 0:
             return self.dict["questions"]
         else:
             return self.dict["questions"][:num]
-        
+
     def get_option(self, option):
         """Get the value of a given options from the options-section"""
-        
+
         return self.dict["options"][option]
-        
+
     def has_option(self, option):
         """True/False depending on if the given options exists or not"""
-        
+
         return option in self.dict["options"]
     
     def parse(self, filename):
         """Parse the given file"""
         
         section = None
-                
+
         with open(filename, "r") as fh:
             #~ content = [line.replace() for line in fh]
             content = fh.read().split("\n")
@@ -212,14 +213,14 @@ class SimpleParser(object):
                     else:
                         self.dict[section].append((rg.group("key").strip(), rg.group("value").strip()))
 
- 
+
 class CrossWordFormatter(object):
     """Formatting Crosswords
-    
+
     This class manages the various ways of crossword-output. Do you want
     it as html, image, text, solved or unsolved?"""
     
-    def __init__(self, crossword, ppb=32, solution=None, transparency=False, order=True):
+    def __init__(self, crossword, ppb=32, solution=None, transparency=False, order=True, fillEmpty=False):
         """-- ppb Pixel per box (Default: 32)
         -- solution A string representing the solution (e.g. "Hallo"). 
         Each letter of that string will be marked on the crossword grid
@@ -230,6 +231,7 @@ class CrossWordFormatter(object):
         
         self.crossword = crossword
         self.ppb = ppb
+        self.fillEmpty = fillEmpty
 
         if order:
             self.crossword._number_words()
@@ -254,7 +256,7 @@ class CrossWordFormatter(object):
         self.colors["text"] = (0,0,0)
         
         self.highlight_colors = [(80, 73, 158, 128), (75, 191, 84, 128), (219, 61, 101, 128), (237, 230, 36, 128), (132, 215, 240, 128)]
-    
+
     ## obsolet
     def _next_highlight_color(self):
         self.current_highlight_color += 1
@@ -273,8 +275,7 @@ class CrossWordFormatter(object):
 
         for word in self.crossword.placed_words:
             self.crossword._write_cell(word.col, word.row, word.number)
-        
-        
+
         html = """<html>
         <head>
         <style type="text/css">
@@ -294,8 +295,8 @@ class CrossWordFormatter(object):
                     html += "<td id=\"box\"><small>%s</small></td>" % cell
                 elif cell == self.crossword.empty:
                     html += "<td>%s</td>" % cell
-                else :
-                    html += "<td id=\"box\"><small>&nbsp;</small></td>" 
+                else:
+                    html += "<td id=\"box\"><small>&nbsp;</small></td>"
             html += "</tr>"
         html += "</table></body></html>"
 
@@ -408,7 +409,14 @@ class CrossWordFormatter(object):
         if not solved:
             outStr = re.sub(r'[a-z]', '_', outStr)
         return outStr
-        
+
+    def get_crossword_csv(self, output, solved=False):
+        """ Write into output"""
+
+        with open(output, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(self.crossword.get_grid())
+
     def get_crossword_image_grid(self, output, solved=False):
         """Draw an image"""
         
@@ -431,14 +439,14 @@ class CrossWordFormatter(object):
         #~ draw.rectangle([(0, 0), (self.crossword.rows*self.ppb, self.crossword.cols*self.ppb)], fill="white")
         
         ## Solution-box coords:
+        solution_coords = []
         if self.solution:
             solution_len = len(self.solution)*ppb
             start_x = width/2 - solution_len/2
             start_y = height - ppb
             #~ solution_coords = [(x, start_y) for x in xrange(start_x, start_x+solution_len, ppb)]
             #~ solution_coords = [(x, start_y//ppb) for x in xrange(start_x//ppb, (start_x//ppb)+(solution_len//ppb))]
-            c =  0
-            solution_coords = []
+            c =  0            
             for letter in self.solution:
             #~ for x in xrange(start_x//ppb, (start_x//ppb)+(solution_len//ppb)):
                 if letter == " ":
@@ -475,6 +483,10 @@ class CrossWordFormatter(object):
                     else:
                         fill_color = self.colors["bg-box"]
                     draw.rectangle([col*self.ppb, row*self.ppb, (col+1)*self.ppb, (row+1)*self.ppb], outline=self.colors["grid"], fill=fill_color)
+                else:
+                    # Filling the empty cells.
+                    if self.fillEmpty:
+                        draw.rectangle([col*self.ppb, row*self.ppb, (col+1)*self.ppb, (row+1)*self.ppb], outline=self.colors["grid"], fill=self.colors["grid"])
                 row += 1
         if self.solution:
             highlight_color = 0
@@ -492,7 +504,7 @@ class CrossWordFormatter(object):
         self.blocked_fields = []
         for word in self.crossword.placed_words:
             col, row = word.col, word.row
-                       
+
             if solved:
                 letter_counter = 0
                 for letter in word.word:
@@ -504,7 +516,7 @@ class CrossWordFormatter(object):
                     else:
                         draw.text(((col-1+letter_counter)*self.ppb+letter_offset_x, (row-1)*self.ppb+letter_offset_y), str(letter), fill="black", font=font)
                     letter_counter+=1
-            
+
             if (col, row) in self.blocked_fields:
                 dummy, y_offset = draw.textsize("123456789", font=number_font)
             else:
@@ -516,7 +528,7 @@ class CrossWordFormatter(object):
                 self._draw_arrow(draw, "down", (col-1)*self.ppb+num_offset+w, (row-1)*self.ppb+num_offset+y_offset, w/len(str(word.number)), h)
             else:
                 self._draw_arrow(draw, "right", (col-1)*self.ppb+num_offset+w, (row-1)*self.ppb+num_offset+y_offset, w/len(str(word.number)), h)
-            
+
             self.blocked_fields.append((col, row))
             
         ## ----------
@@ -526,7 +538,7 @@ class CrossWordFormatter(object):
                 w, h = draw.textsize(letter, font=font)
                 letter_offset_x = self.ppb/2 - w/2
                 letter_offset_y = self.ppb/2 - h/2
-                
+
                 col, row = solution_coords.pop()
                 if col and row:
                     draw.text(((col-1)*self.ppb+letter_offset_x, (row-1)*self.ppb+letter_offset_y), letter, fill="black", font=font)
@@ -593,7 +605,9 @@ class CrossWord(object):
         if len(wordlist) < 3:
             raise WordListError("Need at least 3 entries!")
 
-        if cols =="auto" or rows == "auto":
+        longest = ""
+        average = 0
+        if cols == "auto" or rows == "auto":
             if wordlist != [] and isinstance(wordlist[0], tuple):
                 longest = max(wordlist, key=lambda i: len(i[0]))[0]
                 average = sum([len(w[0]) for w in wordlist])/len(wordlist)
@@ -614,11 +628,13 @@ class CrossWord(object):
                 #~ size = int(size*reduce)
             while size <= min_length:
                 size += 1
-                
-        if cols == "auto":
-            cols = size
-        if rows == "auto":
-            rows = size
+
+            # Push this here.
+            if cols == "auto":
+                cols = size
+            if rows == "auto":
+                rows = size
+
         logging.debug("Grid size: %ix%i" % (cols, rows))
         
         self.cols = cols
@@ -663,10 +679,10 @@ class CrossWord(object):
         tmplist.sort(key=lambda i: len(i.word), reverse=True)
         self.wordlist = tmplist
  
-    def compute_crossword(self, rounds=2, best_of=3, force_solved=False):
+    def compute_crossword(self, rounds=10, best_of=3, force_solved=False):
         """Compute possible crosswords
         
-        -- rounds: How often sould be tried to place a word? (Default: 2)
+        -- rounds: How often should it be tried to place a word? (Default: 2)
         -- best_of: Creates the given number of crosswords and keeps the 
             crossword with the best score (Default: 3)
         -- force_solved Generate grids until every word from the wordlists
@@ -726,7 +742,7 @@ class CrossWord(object):
     def _get_possible_coords(self, word):
         """Generates a list of possible coords.
         
-        Any cell containing a letter of the world will be saved as a possible hit
+        Any cell containing a letter of the word will be saved as a possible hit
         if the word would fit at that position without leaving the grid-bounds.
         Additional checking is done later.
         """
@@ -745,7 +761,7 @@ class CrossWord(object):
         #~ for letterpos, letter in enumerate(word.word): ## Enumerate seems to be slower sometimes
         for letter in word_str:
             letterpos += 1
-            
+
             try:
                 coords = letters[letter]
             except KeyError:
@@ -829,12 +845,12 @@ class CrossWord(object):
  
     def _get_score(self, col, row, vertical, word):
         """Calculate the placement-score of a word for the given coords
-        
+
         Return:
         -- 0 No coord fits
         -- 1 coord fits - but no cross
         -- n n-1 crosses"""
-        
+
         ## optimizations
         empty = self.empty
         _is_empty = self._is_empty
@@ -857,7 +873,7 @@ class CrossWord(object):
         #~ for letterpos, letter in enumerate(word.word):   ## Enumerate is much(!) slower
         for letter in word.word:
             letterpos += 1
-            
+
             try:
                 active_cell = grid[col-1][row-1]#_read_cell(col, row)
             except IndexError:
@@ -1029,6 +1045,34 @@ class CrossWord(object):
                         word2.number = word.number
                         ignore_num.append(word.number)
 
+    def get_grid(self, solved=True):
+        # Generate good size grid.
+        g = []
+        for i in range(self.rows):
+            g.append(['*'] * self.cols)
+
+        # Put data inside.
+        for word in self.placed_words:
+            col, row = word.col, word.row
+            letter_counter = 0
+            
+            for letter in word.word:
+                if word.vertical:
+                    if solved:
+                        g[row+letter_counter][col] = letter;
+                    else:
+                        g[row+letter_counter][col] = '_';
+                else:
+                    if solved:
+                        g[row][col+letter_counter] = letter;
+                    else:
+                        g[row][col+letter_counter] = '_';
+                    
+                letter_counter+=1
+        return g
+
+
+
 class Word(object):
     def __init__(self, word=None, clue=None):
         self.word = re.sub(r'\s', '', word.lower())
@@ -1077,18 +1121,23 @@ if __name__ == "__main__":
     output_group.add_option("--print-clues", help="Print crossword clues to stdout", action="store_true", dest="print_clues", default=False)
     output_group.add_option("--print-crossword", help="Print crossword to stdout", action="store_true", dest="print_crossword", default=False)
     output_group.add_option("--create-image", help="Create a crossword image", action="store_true", dest="create_image", default=False)
+    output_group.add_option("--create-csv", help="Create a csv file", action="store_true", dest="create_csv", default=False)
     output_group.add_option("-o", "--output", help="Specify filename (only for --create-image). If no filename is give, the name will be generated from the input file. If you specify multiple input files and an output file, numbers will be appended to the given output-filename", action="store", dest="output", default=None)
     parser.add_option_group(output_group)
     
     image_group = OptionGroup(parser, "Image Options", "These options can be used to specify the image to be generated")
     image_group.add_option("-p", "--pixels", help="Number of pixels per block for the crossword image", action="store", dest="ppb", default=32, type="int")
+    image_group.add_option("-f", "--fill-empty", help="Fill the empty cells of the crossword image", action="store_true", dest="fill_empty", default=False)
     parser.add_option_group(image_group)
     (options, args) = parser.parse_args()
     
     if options.benchmark:
         if options.bsettings:
             w, n, b = options.bsettings.split(",")
-        run_benchmark_test(words=int(w.strip()), num=int(n.strip()), bestof=int(b.strip()))
+            run_benchmark_test(words=int(w.strip()), num=int(n.strip()), bestof=int(b.strip()))
+        else:
+            run_benchmark_test()
+
         sys.exit(0)
     
     if args == []:
@@ -1103,27 +1152,25 @@ if __name__ == "__main__":
         #~ parser.print_help()
         #~ print("You need to specify the desired output file")
         #~ sys.exit(0)
-    
-    if options.columns.isdigit():
-        options.columns = int(options.columns)
-    if options.rows.isdigit():
-        options.rows = int(options.rows)
-    
+
     #~ input = []
     #~ for filename in args:
         #~ input += glob.glob(filename)
     #~ print options.input
-
+    
     counter = 0
     for inputfile in args:
         if len(args) == 1:
             if options.output:
                 output = options.output
+                csv_output = "%s.csv" % (os.path.splitext(output)[0])
             else:
                 output = "%s.png" % os.path.splitext(inputfile)[0]
+                csv_output = "%s.csv" % (os.path.splitext(inputfile)[0])
                 c = 1
                 while os.path.exists(output):
                     output = "%s_%i.png" % (os.path.splitext(inputfile)[0], c)
+                    csv_output = "%s_%i.csv" % (os.path.splitext(inputfile)[0], c)
                     c += 1
         else:
             if options.output:
@@ -1131,9 +1178,11 @@ if __name__ == "__main__":
             else:
                 filename = inputfile
             output = "%s.png" % (os.path.splitext(filename)[0])
+            csv_output = "%s.csv" % (os.path.splitext(filename)[0])
             c = 1
             while os.path.exists(output):
                 output = "%s_%i.png" % (os.path.splitext(filename)[0], c)
+                csv_output = "%s_%i.csv" % (os.path.splitext(filename)[0], c)
                 c += 1
 
         parser = SimpleParser(inputfile)
@@ -1143,10 +1192,24 @@ if __name__ == "__main__":
             solution = parser.get_option("solution")
         else:
             solution = None
-        
+                   
+        if options.columns.isdigit():
+            options.columns = int(options.columns)
+        elif parser.has_option("columns"):
+            options.columns = int(parser.get_option("columns"))        
+
+        if options.rows.isdigit():
+            options.rows = int(options.rows)
+        elif parser.has_option("rows"):
+            options.rows = int(parser.get_option("rows"))
+
         wordlist = parser.get_questions()
-        cwd = CrossWord(options.columns, options.rows, " ", 5000, wordlist)
-        score = cwd.compute_crossword(best_of=options.bestof, force_solved=False)   
+        
+        # Adding some filling strategy ? Like sort the words by size ?
+        sorted_wordlist = sorted(wordlist, key=lambda x: len(x[0]))
+
+        cwd = CrossWord(options.columns, options.rows, " ", 5000, sorted_wordlist)
+        score = cwd.compute_crossword(best_of=options.bestof, force_solved=False)
     
         tmplist = [w.word.lower() for w in cwd.placed_words]
         missing = [w.word for w in cwd.wordlist if w.word.lower() not in tmplist]
@@ -1157,8 +1220,11 @@ if __name__ == "__main__":
         if options.stats:
             stats(cwd, False)
     
-        formatter = CrossWordFormatter(cwd, ppb=options.ppb, solution=solution)
-            
+        formatter = CrossWordFormatter(cwd, ppb=options.ppb, solution=solution, fillEmpty=options.fill_empty)
+
+        if options.create_csv:
+            formatter.get_crossword_csv(output=csv_output, solved=options.solved)
+
         if options.create_image:
             formatter.get_crossword_image_grid(output=output)
             if options.solved:
