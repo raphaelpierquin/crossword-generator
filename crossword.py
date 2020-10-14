@@ -25,7 +25,7 @@ import re
 import time
 import string
 import copy
-import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from optparse import OptionParser, OptionGroup
 import logging
 
@@ -35,13 +35,13 @@ import logging
 # code.
 
 ## With Bryan's permission this code is released under GPLv3
- 
+
 # optional, speeds up by a factor of 4
 try:
     if not "--nopsyco" in sys.argv:
         import psyco
         psyco.full()
-except ImportError, inst:
+except ImportError as inst:
     print("Psyco not available: '%s'" % inst)
     print("Using PsyCo will speed up this script up to factor 8")
     print("Using PyPy will also speed up your script")
@@ -109,7 +109,7 @@ def run_benchmark_test(words=100, num=100, bestof=3):
     print("Best Crossword with %i points:" % best_score)
     formatter = CrossWordFormatter(best_crossword, ppb=32)#, solution="I solved it")
     #~ print formatter.get_crossword_ascii_grid(solved=False, printable=True)
-    print formatter.get_crossword_ascii_grid(solved=True, printable=True)
+    #~ print formatter.get_crossword_ascii_grid(solved=True, printable=True)
     #~ print formatter.get_crossword_ascii_cues()
     #~ print formatter.get_shuffled_word_list()
     formatter.get_crossword_image_grid(output="benchmark-output-file.png", solved=True)
@@ -118,7 +118,7 @@ def run_benchmark_test(words=100, num=100, bestof=3):
     #~ print [i.word for i in best_crossword.wordlist]
     #~ print [i.word for i in best_crossword.placed_words]
     end = time.time()
-    
+
     msg = "= This benchmark took %.4f seconds =" % (end-start)
     print(len(msg)*"=")
     print(msg)
@@ -126,22 +126,22 @@ def run_benchmark_test(words=100, num=100, bestof=3):
 
 class SimpleParser(object):
     """A simple parser for .cwf files
-    
+
     Actually it's a veeeeeery simple .ini parser. But it ignores letter-cases
     which most other parser do not.
     """
-    
+
     def __init__(self, filename=None):
         self.dict = {}
         if filename:
             self.parse(filename)
-            
+
     def get_questions(self, num=None):
         """Returns a list of (answer, question) tuples
-        
+
         --num Number of questions. Default: None = All
         """
-        
+
         if num is None or num == 0: 
             return self.dict["questions"]
         else:
@@ -189,7 +189,7 @@ class SimpleParser(object):
         
         if not "options" in self.dict:
             self.dict["options"] = {}
-                        
+
         if not "question first" in self.dict["options"]: self.dict["options"]["question first"] = True
         
         ## Second pass: Get the questions
@@ -349,7 +349,7 @@ class CrossWordFormatter(object):
         for r in range(self.crossword.rows):
             for c in self.crossword.grid[r]:
                 if c == self.crossword.empty:
-                    outStr += '%s%s' % (string.lowercase[random.randint(0,len(string.lowercase)-1)], printstr)
+                    outStr += '%s%s' % (string.ascii_lowercase[random.randint(0,len(string.ascii_lowercase)-1)], printstr)
                 else:
                     outStr += '%s%s' % (c, printstr)
             outStr += '\n'
@@ -601,7 +601,7 @@ class CrossWord(object):
                 #~ longest = max(wordlist, key=lambda i: len(i))
                 #~ average = sum(wordlist)/len(wordlist)
             elif wordlist != []:
-                print type(wordlist[0])
+                #~ print type(wordlist[0])
                 raise WordListError("Wordlist must contain strings or tuples!")
             min_length = len(longest)
             #~ if not reduce:
@@ -645,7 +645,7 @@ class CrossWord(object):
         
         ## Create our letter-dict
         self.letters = {}
-        for letter in string.lowercase: self.letters[letter]=[]
+        for letter in string.ascii_lowercase: self.letters[letter]=[]
         ## In "double" we'll put those coords which already are used
         # by two words (cross). So we do not check coords, that are already
         # occupied.
@@ -673,8 +673,9 @@ class CrossWord(object):
             fits. (Default: False).
         """
         
-        copy = CrossWord(self.cols, self.rows, self.empty, self.maxloops, [(w.word, w.clue) for w in self.wordlist], reduce=reduce)
-        
+        # copy = CrossWord(self.cols, self.rows, self.empty, self.maxloops, [(w.word, w.clue) for w in self.wordlist], reduce=reduce)
+        copy = CrossWord(self.cols, self.rows, self.empty, self.maxloops, [(w.word, w.clue) for w in self.wordlist])
+       
         best_score = 0
         count = 0
 
@@ -1080,7 +1081,7 @@ if __name__ == "__main__":
     parser.add_option_group(output_group)
     
     image_group = OptionGroup(parser, "Image Options", "These options can be used to specify the image to be generated")
-    image_group.add_option("-p", "--pixels", help="Number of pixels per block for the corssword image", action="store", dest="ppb", default=32, type="int")
+    image_group.add_option("-p", "--pixels", help="Number of pixels per block for the crossword image", action="store", dest="ppb", default=32, type="int")
     parser.add_option_group(image_group)
     (options, args) = parser.parse_args()
     
@@ -1150,7 +1151,7 @@ if __name__ == "__main__":
         tmplist = [w.word.lower() for w in cwd.placed_words]
         missing = [w.word for w in cwd.wordlist if w.word.lower() not in tmplist]
         if missing != []:
-            print("Could not place some words. Probably your grid is too small. Sometimes setting \"--bestof\" to a higer value also help.")
+            print("Could not place some words. Probably your grid is too small. Sometimes setting \"--bestof\" to a higher value also help.")
             print("Words that could not be placed: '%s'" % missing)
     
         if options.stats:
@@ -1163,9 +1164,9 @@ if __name__ == "__main__":
             if options.solved:
                 formatter.get_crossword_image_grid(output=output.replace(".png", "_solved.png"), solved=True)
         if options.print_crossword:
-            print formatter.get_crossword_ascii_grid(False, True)
-            print "Sorry, the print-crossword-formatter is still buggy!\n"
+            print(formatter.get_crossword_ascii_grid(False, True))
+            print("Sorry, the print-crossword-formatter is still buggy!\n")
         if options.print_clues:
-            print formatter.get_crossword_ascii_cues()
+            print(formatter.get_crossword_ascii_cues())
             
         counter += 1
