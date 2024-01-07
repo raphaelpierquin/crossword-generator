@@ -25,7 +25,7 @@ import re
 import time
 import string
 import copy
-import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from optparse import OptionParser, OptionGroup
 import logging
 
@@ -41,7 +41,7 @@ try:
     if not "--nopsyco" in sys.argv:
         import psyco
         psyco.full()
-except ImportError, inst:
+except ImportError as inst:
     print("Psyco not available: '%s'" % inst)
     print("Using PsyCo will speed up this script up to factor 8")
     print("Using PyPy will also speed up your script")
@@ -109,7 +109,7 @@ def run_benchmark_test(words=100, num=100, bestof=3):
     print("Best Crossword with %i points:" % best_score)
     formatter = CrossWordFormatter(best_crossword, ppb=32)#, solution="I solved it")
     #~ print formatter.get_crossword_ascii_grid(solved=False, printable=True)
-    print formatter.get_crossword_ascii_grid(solved=True, printable=True)
+    print(formatter.get_crossword_ascii_grid(solved=True, printable=True))
     #~ print formatter.get_crossword_ascii_cues()
     #~ print formatter.get_shuffled_word_list()
     formatter.get_crossword_image_grid(output="benchmark-output-file.png", solved=True)
@@ -212,7 +212,12 @@ class SimpleParser(object):
                     else:
                         self.dict[section].append((rg.group("key").strip(), rg.group("value").strip()))
 
- 
+def textsize(text, font):
+    im = Image.new(mode="P", size=(0, 0))
+    draw = ImageDraw.Draw(im)
+    _, _, width, height = draw.textbbox((0, 0), text=text, font=font)
+    return width, height
+
 class CrossWordFormatter(object):
     """Formatting Crosswords
     
@@ -349,7 +354,7 @@ class CrossWordFormatter(object):
         for r in range(self.crossword.rows):
             for c in self.crossword.grid[r]:
                 if c == self.crossword.empty:
-                    outStr += '%s%s' % (string.lowercase[random.randint(0,len(string.lowercase)-1)], printstr)
+                    outStr += '%s%s' % (string.ascii_lowercase[random.randint(0,len(string.ascii_lowercase)-1)], printstr)
                 else:
                     outStr += '%s%s' % (c, printstr)
             outStr += '\n'
@@ -496,7 +501,7 @@ class CrossWordFormatter(object):
             if solved:
                 letter_counter = 0
                 for letter in word.word:
-                    w, h = draw.textsize(letter, font=font)
+                    w, h = textsize(letter, font)
                     letter_offset_x = self.ppb/2 - w/2
                     letter_offset_y = self.ppb/2 - h/2
                     if word.vertical:
@@ -506,11 +511,11 @@ class CrossWordFormatter(object):
                     letter_counter+=1
             
             if (col, row) in self.blocked_fields:
-                dummy, y_offset = draw.textsize("123456789", font=number_font)
+                dummy, y_offset = textsize("123456789", number_font)
             else:
                 y_offset = 0
             draw.text(((col-1)*self.ppb+num_offset, (row-1)*self.ppb+num_offset+y_offset), str(word.number), fill=self.colors["text"], font=number_font)
-            w, h = draw.textsize(str(word.number), font=number_font)
+            w, h = textsize(str(word.number), number_font)
             #~ w = w/len(str(word.number))
             if word.vertical:
                 self._draw_arrow(draw, "down", (col-1)*self.ppb+num_offset+w, (row-1)*self.ppb+num_offset+y_offset, w/len(str(word.number)), h)
@@ -523,7 +528,7 @@ class CrossWordFormatter(object):
         ## Draw Solution
         if solved and self.solution:
             for letter in self.solution[::-1]:
-                w, h = draw.textsize(letter, font=font)
+                w, h = textsize(letter, font)
                 letter_offset_x = self.ppb/2 - w/2
                 letter_offset_y = self.ppb/2 - h/2
                 
@@ -601,7 +606,7 @@ class CrossWord(object):
                 #~ longest = max(wordlist, key=lambda i: len(i))
                 #~ average = sum(wordlist)/len(wordlist)
             elif wordlist != []:
-                print type(wordlist[0])
+                print(type(wordlist[0]))
                 raise WordListError("Wordlist must contain strings or tuples!")
             min_length = len(longest)
             #~ if not reduce:
@@ -645,7 +650,7 @@ class CrossWord(object):
         
         ## Create our letter-dict
         self.letters = {}
-        for letter in string.lowercase: self.letters[letter]=[]
+        for letter in string.ascii_lowercase: self.letters[letter]=[]
         ## In "double" we'll put those coords which already are used
         # by two words (cross). So we do not check coords, that are already
         # occupied.
@@ -673,7 +678,7 @@ class CrossWord(object):
             fits. (Default: False).
         """
         
-        copy = CrossWord(self.cols, self.rows, self.empty, self.maxloops, [(w.word, w.clue) for w in self.wordlist], reduce=reduce)
+        copy = CrossWord(self.cols, self.rows, self.empty, self.maxloops, [(w.word, w.clue) for w in self.wordlist])
         
         best_score = 0
         count = 0
@@ -1163,9 +1168,10 @@ if __name__ == "__main__":
             if options.solved:
                 formatter.get_crossword_image_grid(output=output.replace(".png", "_solved.png"), solved=True)
         if options.print_crossword:
-            print formatter.get_crossword_ascii_grid(False, True)
-            print "Sorry, the print-crossword-formatter is still buggy!\n"
+            print(formatter.get_crossword_ascii_grid(False, True))
+            print("Sorry, the print-crossword-formatter is still buggy!\n")
         if options.print_clues:
-            print formatter.get_crossword_ascii_cues()
+            print(formatter.get_crossword_ascii_cues())
             
         counter += 1
+
