@@ -6,6 +6,7 @@ Generates crosswords and exports them to HTML, png or ascii.
 I could improve in some ways.
 See http://bryanhelmig.com/python-crossword-puzzle-generator/ for his code.
 - to Daniel Nögel for his work.
+- to Tojo Rakotoarison for his contributions.
 
 # Still TODO !
 - The "solution" feature is not totally implemented for the CSV output.
