@@ -22,6 +22,8 @@ So the main options are:
 question first = [True/False] (Default: True)
 title = STRING
 solution = STRING
+columns = INTEGER
+rows = INTEGER
 
 The crossword's solution
 ------------------------
